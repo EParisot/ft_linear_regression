@@ -96,7 +96,7 @@ class Trainer(object):
         for epoch in range(self.epochs):
             print("Training... Epoch : %s" % str(epoch + 1))
             for (batch_x, batch_y) in self.batches_generator(x_data, y_data):
-                pass#self.training_batch(batch_x, batch_y)
+                self.training_batch(batch_x, batch_y)
                 
     def training_batch(self, batch_x, batch_y):
         matrix_0 = []
