@@ -21,6 +21,8 @@ class Trainer(object):
         self.x_data = []
         self.y_data = []
         self.labels = []
+        self.loss = []
+        self.acc = []
         # Read data
         self.read_data()
         if len(self.x_data) != len(self.y_data) or len(self.x_data) == 0:
@@ -94,20 +96,37 @@ class Trainer(object):
         x_data, y_data = zip(*l)
         # loop on epochs / batches / data_points
         for epoch in range(self.epochs):
-            print("Training... Epoch : %s" % str(epoch + 1))
+            print("Training... Epoch : %d" % (epoch + 1))
             for (batch_x, batch_y) in self.batches_generator(x_data, y_data):
                 self.training_batch(batch_x, batch_y)
                 
     def training_batch(self, batch_x, batch_y):
         matrix_0 = []
+        acc_tab = []
         for i, x_val in enumerate(batch_x):
-            matrix_0.append(ft_abs(self.estimate(x_val) - batch_y[i]))
-        self.model[0] = self.learning_rate * (1 / len(batch_x)) * ft_sum(matrix_0)
+            error = ft_abs(self.estimate(x_val) - batch_y[i])
+            matrix_0.append(error)
+            acc_tab.append(1 - (error / max(batch_y[i], self.estimate(x_val))))
+        loss_0 = (1 / len(batch_x)) * ft_sum(matrix_0)
+        acc = ft_sum(acc_tab) / len(acc_tab)
+        # a
         matrix_1 = []
         for i, elem in enumerate(matrix_0):
-            matrix_1.append(elem * batch_y[i])
-        self.model[1] = self.learning_rate * (1 / len(batch_x)) * ft_sum(matrix_1)
-        print()
+            error = elem * batch_y[i]
+            matrix_1.append(error)
+        loss_1 = (1 / len(batch_x)) * ft_sum(matrix_1)
+        # process train
+        self.model[0] = self.learning_rate * loss_0
+        self.model[1] = self.learning_rate * loss_1
+        self.loss.append(round(loss_0, 2))
+        self.acc.append(round(acc, 2))
+        #self.update_lr()
+        print("loss : %f ; acc : %f" % (self.loss[-1], self.acc[-1]))
+
+    def update_lr(self):
+        if len(self.loss) > 1:
+            if self.loss[-1] > self.loss[-2]:
+                self.learning_rate = 1 - self.learning_rate
     
     def estimate(self, x):
         y = self.model[0] + self.model[1] * x 
@@ -128,7 +147,7 @@ class Trainer(object):
 @click.option("-p", "plot", is_flag=True, help="plot data")
 @click.option("-e", "epochs", default=1, help="epochs to train")
 @click.option("-b", "batch_size", default=1, help="batch size")
-@click.option("-l", "learning_rate", default=0.01, help="learning rate")
+@click.option("-l", "learning_rate", default=0.1, help="learning rate")
 
 def main(data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
     trainer = Trainer(data_file, sep, plot, model_file, epochs, batch_size, learning_rate)
