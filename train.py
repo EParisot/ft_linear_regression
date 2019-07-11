@@ -1,11 +1,11 @@
 import os
 import random
 import re
+import sys
 import time
 import click
 import matplotlib.pyplot as plt
 import progressbar
-from utils import ft_abs, ft_sqrt, ft_power, ft_sum
 
 class Trainer(object):
 
@@ -21,8 +21,8 @@ class Trainer(object):
         self.x_data = []
         self.y_data = []
         self.labels = []
-        self.loss = []
         self.acc = []
+        self.loss = []
         # Read data
         self.read_data()
         if len(self.x_data) != len(self.y_data) or len(self.x_data) == 0:
@@ -47,14 +47,22 @@ class Trainer(object):
                     elif len(line_data) == 2:
                         self.labels.append(line_data[0])
                         self.labels.append(line_data[1])
+            self.normalise()
 
+    def normalise(self):
+        x_max = max(self.x_data)
+        y_max = max(self.y_data)
+        for i, _ in enumerate(self.x_data):
+            self.x_data[i] /= x_max
+            self.y_data[i] /= y_max
+            
     def read_model(self):
         if os.path.exists(self.model_file):
             with open(self.model_file, "r") as f:
                 for line in f:
                     line = line.replace('\n', '')
                     line_data = line.split(self.sep)
-                    r = re.compile('\d+(\.\d+)?')
+                    r = re.compile('-?\d+(\.\d+)?')
                     if len(line_data) == 2 and all([r.match(value) for value in line_data]):
                         self.model[0] = float(line_data[0])
                         self.model[1] = float(line_data[1])
@@ -63,7 +71,7 @@ class Trainer(object):
         #sort
         x_data, y_data = [list(t) for t in zip(*sorted(zip(self.x_data, self.y_data)))]
         #plot
-        plt.plot(x_data, y_data)
+        plt.scatter(x_data, y_data)
         if len(self.labels):
             plt.xlabel(self.labels[0])
             plt.ylabel(self.labels[1])
@@ -88,6 +96,13 @@ class Trainer(object):
         self.train_loop()
         # write model file
         self.save_model()
+        # plot result
+        if self.plot:
+            winsize = len(self.acc) // 100
+            plt.plot(meanfilt(self.acc, winsize), label="acc")
+            plt.plot(meanfilt(self.loss, winsize), label="loss")
+            plt.legend()
+            plt.show(block=True)
 
     def train_loop(self):
         # shuffle datas
@@ -101,35 +116,32 @@ class Trainer(object):
                 self.training_batch(batch_x, batch_y)
                 
     def training_batch(self, batch_x, batch_y):
-        matrix_0 = []
-        acc_tab = []
-        for i, x_val in enumerate(batch_x):
-            error = ft_abs(self.estimate(x_val) - batch_y[i])
-            matrix_0.append(error)
-            acc_tab.append(1 - (error / max(batch_y[i], self.estimate(x_val))))
-        loss_0 = (1 / len(batch_x)) * ft_sum(matrix_0)
-        acc = ft_sum(acc_tab) / len(acc_tab)
-        # a
-        matrix_1 = []
-        for i, elem in enumerate(matrix_0):
-            error = elem * batch_y[i]
-            matrix_1.append(error)
-        loss_1 = (1 / len(batch_x)) * ft_sum(matrix_1)
+        acc_count = 0
+        b_vect = []
+        for i, _ in enumerate(batch_x):
+            error = batch_y[i] - self.estimate(batch_x[i])
+            if error <= self.learning_rate:
+                acc_count += 1
+            b_vect.append(error)
+        acc = acc_count / len(batch_x)
+        loss = sum([val ** 2 for val in b_vect])
+        loss_b_prime = (-2 / len(batch_x)) * sum(b_vect)
+        a_vect = []
+        for i, elem in enumerate(b_vect):
+            error = elem * batch_x[i]
+            a_vect.append(error)
+        loss_a_prime = (-2 / len(batch_x)) * sum(a_vect)
         # process train
-        self.model[0] = self.learning_rate * loss_0
-        self.model[1] = self.learning_rate * loss_1
-        self.loss.append(round(loss_0, 2))
-        self.acc.append(round(acc, 2))
-        #self.update_lr()
-        print("loss : %f ; acc : %f" % (self.loss[-1], self.acc[-1]))
-
-    def update_lr(self):
-        if len(self.loss) > 1:
-            if self.loss[-1] > self.loss[-2]:
-                self.learning_rate = 1 - self.learning_rate
+        self.model[0] = self.model[0] - self.learning_rate * loss_b_prime
+        self.model[1] = self.model[1] - self.learning_rate * loss_a_prime
+        # save hist
+        self.acc.append(acc)
+        self.loss.append(loss)
+        # print
+        print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
     
     def estimate(self, x):
-        y = self.model[0] + self.model[1] * x 
+        y = self.model[0] + self.model[1] * x
         return y
     
     def batches_generator(self, x_data, y_data):
@@ -139,7 +151,16 @@ class Trainer(object):
             batch_x = x_data[start:end]
             batch_y = y_data[start:end]
             yield batch_x, batch_y
-    
+
+def meanfilt(tab, winsize):
+    res = []
+    for chunk in range(len(tab)//winsize):
+        start = chunk * winsize
+        end = chunk * winsize + winsize 
+        mean = sum(tab[start:end]) / winsize
+        res += [mean] * winsize
+    return res
+
 @click.command()
 @click.argument("data_file", type=click.Path(exists=True))
 @click.argument("model_file", default="model.csv")
@@ -147,8 +168,7 @@ class Trainer(object):
 @click.option("-p", "plot", is_flag=True, help="plot data")
 @click.option("-e", "epochs", default=1, help="epochs to train")
 @click.option("-b", "batch_size", default=1, help="batch size")
-@click.option("-l", "learning_rate", default=0.1, help="learning rate")
-
+@click.option("-l", "learning_rate", default=0.001, help="learning rate")
 def main(data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
     trainer = Trainer(data_file, sep, plot, model_file, epochs, batch_size, learning_rate)
     trainer.train()
