@@ -1,11 +1,9 @@
 import os
 import random
 import re
-import sys
 import time
 import click
 import matplotlib.pyplot as plt
-import progressbar
 
 class Trainer(object):
 
@@ -103,49 +101,55 @@ class Trainer(object):
             plt.plot(meanfilt(self.loss, winsize), label="loss")
             plt.legend()
             plt.show(block=True)
+            
 
     def train_loop(self):
         # shuffle datas
         l = list(zip(self.x_data, self.y_data))
         random.shuffle(l)
         x_data, y_data = zip(*l)
+        acc_hist = []
+        loss_hist = []
         # loop on epochs / batches / data_points
         for epoch in range(self.epochs):
             print("Training... Epoch : %d" % (epoch + 1))
             for (batch_x, batch_y) in self.batches_generator(x_data, y_data):
-                self.training_batch(batch_x, batch_y)
+                loss, acc = self.training_batch(batch_x, batch_y)
+                acc_hist.append(acc)
+                loss_hist.append(loss)
+            self.acc.append(sum(acc_hist)/len(acc_hist))
+            self.loss.append(sum(loss_hist)/len(loss_hist))
+            # print
+            print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
                 
     def training_batch(self, batch_x, batch_y):
+        n = float(len(batch_x))
         acc_count = 0
         b_vect = []
         for i, _ in enumerate(batch_x):
             error = batch_y[i] - self.estimate(batch_x[i])
-            if error <= self.learning_rate:
+            if ft_abs(error) <= self.learning_rate:
                 acc_count += 1
             b_vect.append(error)
-        acc = acc_count / len(batch_x)
-        loss = sum([val ** 2 for val in b_vect])
-        loss_b_prime = (-2 / len(batch_x)) * sum(b_vect)
+        loss_b_prime = (-2 / n) * sum(b_vect)
         a_vect = []
         for i, elem in enumerate(b_vect):
             error = elem * batch_x[i]
             a_vect.append(error)
-        loss_a_prime = (-2 / len(batch_x)) * sum(a_vect)
+        loss_a_prime = (-2 / n) * sum(a_vect)
         # process train
         self.model[0] = self.model[0] - self.learning_rate * loss_b_prime
         self.model[1] = self.model[1] - self.learning_rate * loss_a_prime
-        # save hist
-        self.acc.append(acc)
-        self.loss.append(loss)
-        # print
-        print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
+        acc = acc_count / n
+        loss = sum([val ** 2 for val in b_vect])
+        return loss, acc
     
     def estimate(self, x):
         y = self.model[0] + self.model[1] * x
         return y
     
     def batches_generator(self, x_data, y_data):
-        for i in progressbar.progressbar(range(len(x_data) // self.batch_size)):
+        for i in range(len(x_data) // self.batch_size):
             start = i * self.batch_size
             end = i * self.batch_size + self.batch_size
             batch_x = x_data[start:end]
@@ -160,6 +164,13 @@ def meanfilt(tab, winsize):
         mean = sum(tab[start:end]) / winsize
         res += [mean] * winsize
     return res
+
+
+def ft_abs(number):
+    if number > 0:
+        return(number)
+    else:
+        return(-number)
 
 @click.command()
 @click.argument("data_file", type=click.Path(exists=True))
