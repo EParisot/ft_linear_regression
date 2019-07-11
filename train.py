@@ -5,16 +5,18 @@ import time
 import click
 import matplotlib.pyplot as plt
 import progressbar
+from utils import ft_abs, ft_sqrt, ft_power, ft_sum
 
 class Trainer(object):
 
-    def __init__(self, data_file, sep, plot, model_file, epochs, batch_size):
+    def __init__(self, data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
         self.data_file = data_file
         self.sep = sep
         self.plot = plot
         self.model_file = model_file
         self.epochs = epochs
         self.batch_size = batch_size
+        self.learning_rate = learning_rate
         self.model = [0.0, 0.0]
         self.x_data = []
         self.y_data = []
@@ -38,9 +40,8 @@ class Trainer(object):
                     line = line.replace('\n', '')
                     line_data = line.split(self.sep)
                     if len(line_data) == 2 and all([value.isdigit() for value in line_data]):
-                        float_data = [float(value) for value in line_data]
-                        self.x_data.append(float_data[0])
-                        self.y_data.append(float_data[1])
+                        self.x_data.append(int(line_data[0]))
+                        self.y_data.append(int(line_data[1]))
                     elif len(line_data) == 2:
                         self.labels.append(line_data[0])
                         self.labels.append(line_data[1])
@@ -84,7 +85,6 @@ class Trainer(object):
         # process train
         self.train_loop()
         # write model file
-        self.model = [theta_0, theta_1]
         self.save_model()
 
     def train_loop(self):
@@ -96,12 +96,22 @@ class Trainer(object):
         for epoch in range(self.epochs):
             print("Training... Epoch : %s" % str(epoch + 1))
             for (batch_x, batch_y) in self.batches_generator(x_data, y_data):
-                self.training_step(batch_x, batch_y)
+                pass#self.training_batch(batch_x, batch_y)
                 
-    def training_step(self, batch_x, batch_y):
-        for data_point in list(zip(batch_x, batch_y)):
-            # update thetas
-            pass
+    def training_batch(self, batch_x, batch_y):
+        matrix_0 = []
+        for i, x_val in enumerate(batch_x):
+            matrix_0.append(ft_abs(self.estimate(x_val) - batch_y[i]))
+        self.model[0] = self.learning_rate * (1 / len(batch_x)) * ft_sum(matrix_0)
+        matrix_1 = []
+        for i, elem in enumerate(matrix_0):
+            matrix_1.append(elem * batch_y[i])
+        self.model[1] = self.learning_rate * (1 / len(batch_x)) * ft_sum(matrix_1)
+        print()
+    
+    def estimate(self, x):
+        y = self.model[0] + self.model[1] * x 
+        return y
     
     def batches_generator(self, x_data, y_data):
         for i in progressbar.progressbar(range(len(x_data) // self.batch_size)):
@@ -118,9 +128,10 @@ class Trainer(object):
 @click.option("-p", "plot", is_flag=True, help="plot data")
 @click.option("-e", "epochs", default=1, help="epochs to train")
 @click.option("-b", "batch_size", default=1, help="batch size")
+@click.option("-l", "learning_rate", default=0.01, help="learning rate")
 
-def main(data_file, sep, plot, model_file, epochs, batch_size):
-    trainer = Trainer(data_file, sep, plot, model_file, epochs, batch_size)
+def main(data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
+    trainer = Trainer(data_file, sep, plot, model_file, epochs, batch_size, learning_rate)
     trainer.train()
 
 if __name__ == "__main__":
