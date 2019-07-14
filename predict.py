@@ -1,6 +1,7 @@
 import os
 import re
 import click
+import json
 
 class Predictor(object):
 
@@ -19,14 +20,14 @@ class Predictor(object):
         if os.path.exists(self.model_file):
             with open(self.model_file, "r") as f:
                 for line in f:
-                    line = line.replace('\n', '')
-                    line_data = line.split(self.sep)
-                    r = re.compile('-?\d+(\.\d+)?')
-                    if len(line_data) == 2 and all([r.match(value) for value in line_data]):
-                        self.model[0] = float(line_data[0])
-                        self.model[1] = float(line_data[1])
+                    data = json.load(line)
+                    self.model["theta_0"] = data["theta_0"]
+                    self.model["theta_1"] = data["theta_1"]
+                    self.model["x_min"] = data["x_min"]
+                    self.model["x_max"] = data["x_max"]
+                    self.model["y_min"] = data["y_min"]
+                    self.model["y_max"] = data["y_max"]
     
-
     def predict(self, x):
         y = self.model[0] + self.model[1] * x
         return y

@@ -1,5 +1,6 @@
 import os
 import random
+import json
 import re
 import time
 import click
@@ -14,7 +15,12 @@ class Trainer(object):
         self.model_file = model_file
         self.epochs = epochs
         self.learning_rate = learning_rate
-        self.model = [0.0, 0.0]
+        self.model =   {"theta_0": 0.0, 
+                        "theta_1": 0.0, 
+                        "x_min": 0, 
+                        "x_max": 0, 
+                        "y_min": 0, 
+                        "y_max": 0}
         self.x_data = []
         self.y_data = []
         self.labels = []
@@ -32,9 +38,6 @@ class Trainer(object):
         # Read model
         if len(self.model_file):
             self.read_model()
-        # Plot data
-        if self.plot:
-            self.plot_data(False)
 
     def read_data(self):
         if os.path.exists(self.data_file):
@@ -60,32 +63,39 @@ class Trainer(object):
             self.x_data[i] /= x_max
             self.y_data[i] -= y_min
             self.y_data[i] /= y_max
+        self.model["x_min"] = x_min
+        self.model["x_max"] = x_max
+        self.model["y_min"] = y_min
+        self.model["y_max"] = y_max
             
     def read_model(self):
         if os.path.exists(self.model_file):
             with open(self.model_file, "r") as f:
                 for line in f:
-                    line = line.replace('\n', '')
-                    line_data = line.split(self.sep)
-                    r = re.compile('-?\d+(\.\d+)?')
-                    if len(line_data) == 2 and all([r.match(value) for value in line_data]):
-                        self.model[0] = float(line_data[0])
-                        self.model[1] = float(line_data[1])
+                    data = json.load(line)
+                    self.model["theta_0"] = data["theta_0"]
+                    self.model["theta_1"] = data["theta_1"]
+                    self.model["x_min"] = data["x_min"]
+                    self.model["x_max"] = data["x_max"]
+                    self.model["y_min"] = data["y_min"]
+                    self.model["y_max"] = data["y_max"]
 
-    def plot_data(self, finished):
+
+    def plot_data(self):
         #sort
         x_data, y_data = [list(t) for t in zip(*sorted(zip(self.x_data, self.y_data)))]
         #plot
+        plt.figure("Data")
         plt.scatter(x_data, y_data)
         if len(self.labels):
             plt.xlabel(self.labels[0])
             plt.ylabel(self.labels[1])
-        if finished == True:
-            x1 = min(x_data)
-            y1 = self.estimate(x1)
-            x2 = max(x_data)
-            y2 = self.estimate(x2)
-            plt.plot([x1, y1], [x2, y2], c="r")
+        # result
+        x1 = min(x_data)
+        y1 = self.estimate(x1)
+        x2 = max(x_data)
+        y2 = self.estimate(x2)
+        plt.plot([x1, y1], [x2, y2], c="r")
         plt.show(block=True)
 
     def save_model(self):
@@ -94,26 +104,27 @@ class Trainer(object):
         else:
             mode = "a"
         with open(self.model_file, mode) as f:
-            f.write(str(self.model[0]) + self.sep + str(self.model[1]) + "\n")
+            json.dump(self.model, f)
 
     def train(self):
         theta_0 = 0.0
         theta_1 = 0.0
         # read model
-        if self.model[0] != theta_0 or self.model[1] != theta_1:
-            theta_0 = self.model[0]
-            theta_1 = self.model[1]
+        if self.model["theta_0"] != theta_0 or self.model["theta_1"] != theta_1:
+            theta_0 = self.model["theta_0"]
+            theta_1 = self.model["theta_1"]
         # process train
         self.train_loop()
         # write model file
         self.save_model()
         # plot result
         if self.plot:
+            plt.figure("Train history")
             plt.plot(self.acc, label="acc")
             plt.plot(self.loss, label="loss")
             plt.legend()
             plt.show(block=True)
-            self.plot_data(True)
+            self.plot_data()
 
     def train_loop(self):
         # shuffle datas
@@ -130,6 +141,14 @@ class Trainer(object):
                 # print
                 print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
                 
+    def batches_generator(self, x_data, y_data):
+        for i in range(len(x_data) // self.batch_size):
+            start = i * self.batch_size
+            end = i * self.batch_size + self.batch_size
+            batch_x = x_data[start:end]
+            batch_y = y_data[start:end]
+            yield batch_x, batch_y
+
     def training_batch(self, batch_x, batch_y):
         n = float(len(batch_x))
         b_vect = []
@@ -145,25 +164,25 @@ class Trainer(object):
         # process train
         tmp_theta_0 = self.learning_rate * loss_b_prime / n
         tmp_theta_1 = self.learning_rate * loss_a_prime / n
-        self.model[0] -= tmp_theta_0
-        self.model[1] -= tmp_theta_1
+        self.model["theta_0"] -= tmp_theta_0
+        self.model["theta_1"] -= tmp_theta_1
 
         # metrics
         new_loss_tab = []
         acc_tab = []
         for i, _ in enumerate(batch_x):
-            error = (self.estimate(batch_x[i]) - batch_y[i]) ** 2
-            new_loss_tab.append(error)
-            if error < 1:
-                acc_tab.append(1)
+            error = self.estimate(batch_x[i]) - batch_y[i]
+            error_sq = error ** 2
+            new_loss_tab.append(error_sq)
+            acc_tab.append(1)
         new_loss = sum(new_loss_tab) / n
         acc = sum(acc_tab) / n
 
         # adjust LR
         if len(self.loss) > 0:
             if new_loss >= self.loss[-1]:
-                self.model[0] += self.learning_rate * tmp_theta_0 / n
-                self.model[1] += self.learning_rate * tmp_theta_1 / n
+                self.model["theta_0"] += self.learning_rate * tmp_theta_0 / n
+                self.model["theta_1"] += self.learning_rate * tmp_theta_1 / n
                 self.learning_rate *=  0.5
             else:
                 self.learning_rate *= 1.05
@@ -171,16 +190,8 @@ class Trainer(object):
         return new_loss, acc
     
     def estimate(self, x):
-        y = self.model[0] + self.model[1] * x
+        y = self.model["theta_0"] + self.model["theta_1"] * x
         return y
-    
-    def batches_generator(self, x_data, y_data):
-        for i in range(len(x_data) // self.batch_size):
-            start = i * self.batch_size
-            end = i * self.batch_size + self.batch_size
-            batch_x = x_data[start:end]
-            batch_y = y_data[start:end]
-            yield batch_x, batch_y
 
 def meanfilt(tab, winsize):
     res = []
