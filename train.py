@@ -13,7 +13,6 @@ class Trainer(object):
         self.plot = plot
         self.model_file = model_file
         self.epochs = epochs
-        self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.model = [0.0, 0.0]
         self.x_data = []
@@ -26,12 +25,16 @@ class Trainer(object):
         if len(self.x_data) != len(self.y_data) or len(self.x_data) == 0:
             print("Error : no valid data found in %s" % self.data_file)
             return
+        if batch_size > 0 and batch_size <= len(self.x_data):
+            self.batch_size = batch_size
+        else:
+            self.batch_size = len(self.x_data)
         # Read model
         if len(self.model_file):
             self.read_model()
         # Plot data
         if self.plot:
-            self.plot_data()
+            self.plot_data(False)
 
     def read_data(self):
         if os.path.exists(self.data_file):
@@ -48,10 +51,14 @@ class Trainer(object):
             self.normalise()
 
     def normalise(self):
-        x_max = max(self.x_data)
-        y_max = max(self.y_data)
+        x_min = min(self.x_data)
+        x_max = max(self.x_data) - x_min
+        y_min = min(self.y_data)
+        y_max = max(self.y_data) - y_min
         for i, _ in enumerate(self.x_data):
+            self.x_data[i] -= x_min
             self.x_data[i] /= x_max
+            self.y_data[i] -= y_min
             self.y_data[i] /= y_max
             
     def read_model(self):
@@ -65,7 +72,7 @@ class Trainer(object):
                         self.model[0] = float(line_data[0])
                         self.model[1] = float(line_data[1])
 
-    def plot_data(self):
+    def plot_data(self, finished):
         #sort
         x_data, y_data = [list(t) for t in zip(*sorted(zip(self.x_data, self.y_data)))]
         #plot
@@ -73,6 +80,12 @@ class Trainer(object):
         if len(self.labels):
             plt.xlabel(self.labels[0])
             plt.ylabel(self.labels[1])
+        if finished == True:
+            x1 = min(x_data)
+            y1 = self.estimate(x1)
+            x2 = max(x_data)
+            y2 = self.estimate(x2)
+            plt.plot([x1, y1], [x2, y2], c="r")
         plt.show(block=True)
 
     def save_model(self):
@@ -96,53 +109,66 @@ class Trainer(object):
         self.save_model()
         # plot result
         if self.plot:
-            winsize = len(self.acc) // 100
-            plt.plot(meanfilt(self.acc, winsize), label="acc")
-            plt.plot(meanfilt(self.loss, winsize), label="loss")
+            plt.plot(self.acc, label="acc")
+            plt.plot(self.loss, label="loss")
             plt.legend()
             plt.show(block=True)
-            
+            self.plot_data(True)
 
     def train_loop(self):
         # shuffle datas
         l = list(zip(self.x_data, self.y_data))
         random.shuffle(l)
         x_data, y_data = zip(*l)
-        acc_hist = []
-        loss_hist = []
         # loop on epochs / batches / data_points
         for epoch in range(self.epochs):
             print("Training... Epoch : %d" % (epoch + 1))
             for (batch_x, batch_y) in self.batches_generator(x_data, y_data):
                 loss, acc = self.training_batch(batch_x, batch_y)
-                acc_hist.append(acc)
-                loss_hist.append(loss)
-            self.acc.append(sum(acc_hist)/len(acc_hist))
-            self.loss.append(sum(loss_hist)/len(loss_hist))
-            # print
-            print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
+                self.acc.append(acc)
+                self.loss.append(loss)
+                # print
+                print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
                 
     def training_batch(self, batch_x, batch_y):
         n = float(len(batch_x))
-        acc_count = 0
         b_vect = []
-        for i, _ in enumerate(batch_x):
-            error = batch_y[i] - self.estimate(batch_x[i])
-            if ft_abs(error) <= self.learning_rate:
-                acc_count += 1
-            b_vect.append(error)
-        loss_b_prime = (-2 / n) * sum(b_vect)
         a_vect = []
-        for i, elem in enumerate(b_vect):
-            error = elem * batch_x[i]
-            a_vect.append(error)
-        loss_a_prime = (-2 / n) * sum(a_vect)
+        for i, _ in enumerate(batch_x):
+            error_b = self.estimate(batch_x[i]) - batch_y[i]
+            b_vect.append(error_b)
+            error_a = error_b * batch_x[i]
+            a_vect.append(error_a)
+        loss_b_prime = sum(b_vect)
+        loss_a_prime = sum(a_vect)
+
         # process train
-        self.model[0] = self.model[0] - self.learning_rate * loss_b_prime
-        self.model[1] = self.model[1] - self.learning_rate * loss_a_prime
-        acc = acc_count / n
-        loss = sum([val ** 2 for val in b_vect])
-        return loss, acc
+        tmp_theta_0 = self.learning_rate * loss_b_prime / n
+        tmp_theta_1 = self.learning_rate * loss_a_prime / n
+        self.model[0] -= tmp_theta_0
+        self.model[1] -= tmp_theta_1
+
+        # metrics
+        new_loss_tab = []
+        acc_tab = []
+        for i, _ in enumerate(batch_x):
+            error = (self.estimate(batch_x[i]) - batch_y[i]) ** 2
+            new_loss_tab.append(error)
+            if error < 1:
+                acc_tab.append(1)
+        new_loss = sum(new_loss_tab) / n
+        acc = sum(acc_tab) / n
+
+        # adjust LR
+        if len(self.loss) > 0:
+            if new_loss >= self.loss[-1]:
+                self.model[0] += self.learning_rate * tmp_theta_0 / n
+                self.model[1] += self.learning_rate * tmp_theta_1 / n
+                self.learning_rate *=  0.5
+            else:
+                self.learning_rate *= 1.05
+             
+        return new_loss, acc
     
     def estimate(self, x):
         y = self.model[0] + self.model[1] * x
@@ -178,8 +204,8 @@ def ft_abs(number):
 @click.option("-sep", "sep", default=",", help="csv separator")
 @click.option("-p", "plot", is_flag=True, help="plot data")
 @click.option("-e", "epochs", default=1, help="epochs to train")
-@click.option("-b", "batch_size", default=1, help="batch size")
-@click.option("-l", "learning_rate", default=0.001, help="learning rate")
+@click.option("-b", "batch_size", default=0, help="batch size")
+@click.option("-l", "learning_rate", default=0.1, help="learning rate")
 def main(data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
     trainer = Trainer(data_file, sep, plot, model_file, epochs, batch_size, learning_rate)
     trainer.train()
