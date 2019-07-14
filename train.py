@@ -71,14 +71,13 @@ class Trainer(object):
     def read_model(self):
         if os.path.exists(self.model_file):
             with open(self.model_file, "r") as f:
-                for line in f:
-                    data = json.load(line)
-                    self.model["theta_0"] = data["theta_0"]
-                    self.model["theta_1"] = data["theta_1"]
-                    self.model["x_min"] = data["x_min"]
-                    self.model["x_max"] = data["x_max"]
-                    self.model["y_min"] = data["y_min"]
-                    self.model["y_max"] = data["y_max"]
+                data = json.load(f)
+                self.model["theta_0"] = data["theta_0"]
+                self.model["theta_1"] = data["theta_1"]
+                self.model["x_min"] = data["x_min"]
+                self.model["x_max"] = data["x_max"]
+                self.model["y_min"] = data["y_min"]
+                self.model["y_max"] = data["y_max"]
 
 
     def plot_data(self):

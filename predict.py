@@ -33,7 +33,7 @@ class Predictor(object):
         return y
 
 @click.command()
-@click.argument("model_file", default="model.csv")
+@click.argument("model_file", default="model.json")
 @click.option("-sep", "sep", default=",", help="csv separator")
 def main(model_file, sep):
     x = click.prompt("Please type X value (int)", type=int)
