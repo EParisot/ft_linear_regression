@@ -1,7 +1,7 @@
 import os
 import random
 import json
-import re
+
 import time
 import click
 import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ class Trainer(object):
         self.read_data()
         if len(self.x_data) != len(self.y_data) or len(self.x_data) == 0:
             print("Error : no valid data found in %s" % self.data_file)
-            return
+            exit(0)
         # Read model
         if len(self.model_file):
             self.read_model()
