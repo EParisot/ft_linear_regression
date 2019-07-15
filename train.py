@@ -12,7 +12,7 @@ from threading import Thread
 
 class Trainer(object):
 
-    def __init__(self, data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
+    def __init__(self, data_file, sep, plot, model_file, epochs, learning_rate):
         self.data_file = data_file
         self.sep = sep
         self.plot = plot
@@ -35,10 +35,6 @@ class Trainer(object):
         if len(self.x_data) != len(self.y_data) or len(self.x_data) == 0:
             print("Error : no valid data found in %s" % self.data_file)
             return
-        if batch_size > 0 and batch_size <= len(self.x_data):
-            self.batch_size = batch_size
-        else:
-            self.batch_size = len(self.x_data)
         # Read model
         if len(self.model_file):
             self.read_model()
@@ -109,7 +105,7 @@ class Trainer(object):
         y2 = self.estimate(x2)
         plt.plot([x1, x2], [y1, y2], c="r")
         plt.draw()
-        plt.pause(10/self.epochs)
+        plt.pause(1/self.epochs)
 
     def train(self):
         theta_0 = 0.0
@@ -138,24 +134,15 @@ class Trainer(object):
         # loop on epochs / batches / data_points
         for epoch in range(self.epochs):
             print("Training... Epoch : %d" % (epoch + 1))
-            for (batch_x, batch_y) in self.batches_generator(x_data, y_data):
-                loss, acc = self.training_batch(batch_x, batch_y)
-                self.acc.append(acc)
-                self.loss.append(loss)
-                # print
-                print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
-                if self.plot:
-                    self.animate()
+            loss, acc = self.train_epoch(x_data, y_data)
+            self.acc.append(acc)
+            self.loss.append(loss)
+            # print
+            print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
+            if self.plot:
+                self.animate()
                 
-    def batches_generator(self, x_data, y_data):
-        for i in range(len(x_data) // self.batch_size):
-            start = i * self.batch_size
-            end = i * self.batch_size + self.batch_size
-            batch_x = x_data[start:end]
-            batch_y = y_data[start:end]
-            yield batch_x, batch_y
-
-    def training_batch(self, batch_x, batch_y):
+    def train_epoch(self, batch_x, batch_y):
         n = float(len(batch_x))
         b_vect = []
         a_vect = []
@@ -221,10 +208,9 @@ def ft_abs(number):
 @click.option("-sep", "sep", default=",", help="csv separator")
 @click.option("-p", "plot", is_flag=True, help="plot data")
 @click.option("-e", "epochs", default=1, help="epochs to train")
-@click.option("-b", "batch_size", default=0, help="batch size")
 @click.option("-l", "learning_rate", default=0.1, help="learning rate")
-def main(data_file, sep, plot, model_file, epochs, batch_size, learning_rate):
-    trainer = Trainer(data_file, sep, plot, model_file, epochs, batch_size, learning_rate)
+def main(data_file, sep, plot, model_file, epochs, learning_rate):
+    trainer = Trainer(data_file, sep, plot, model_file, epochs, learning_rate)
     if trainer.plot:
         plt.ion()
     trainer.train()
