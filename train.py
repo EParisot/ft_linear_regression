@@ -145,6 +145,8 @@ class Trainer(object):
                 
     def train_epoch(self, X, Y):
         n = float(len(X))
+
+        # cost 
         b_vect = []
         a_vect = []
         for i, _ in enumerate(X):
@@ -155,7 +157,7 @@ class Trainer(object):
         loss_b_prime = sum(b_vect)
         loss_a_prime = sum(a_vect)
 
-        # process train
+        # gradient descent
         tmp_theta_0 = self.learning_rate * loss_b_prime / n
         tmp_theta_1 = self.learning_rate * loss_a_prime / n
         self.model["theta_0"] -= tmp_theta_0
