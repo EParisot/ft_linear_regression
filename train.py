@@ -56,18 +56,19 @@ class Trainer(object):
 
     def normalise(self):
         x_min = min(self.x_data)
-        x_max = max(self.x_data) - x_min
+        x_max = max(self.x_data)
         y_min = min(self.y_data)
-        y_max = max(self.y_data) - y_min
-        for i, _ in enumerate(self.x_data):
-            self.x_data[i] -= x_min
-            self.x_data[i] /= x_max
-            self.y_data[i] -= y_min
-            self.y_data[i] /= y_max
+        y_max = max(self.y_data)
         self.model["x_min"] = x_min
         self.model["x_max"] = x_max
         self.model["y_min"] = y_min
         self.model["y_max"] = y_max
+        for i, _ in enumerate(self.x_data):
+            self.x_data[i] -= x_min
+            self.x_data[i] /= (x_max - x_min)
+            self.y_data[i] -= y_min
+            self.y_data[i] /= (y_max - y_min)
+        
             
     def read_model(self):
         if os.path.exists(self.model_file):
