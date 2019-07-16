@@ -186,22 +186,6 @@ class Trainer(object):
         y = self.model["theta_0"] + self.model["theta_1"] * x
         return y
 
-def meanfilt(tab, winsize):
-    res = []
-    for chunk in range(len(tab)//winsize):
-        start = chunk * winsize
-        end = chunk * winsize + winsize 
-        mean = sum(tab[start:end]) / winsize
-        res += [mean] * winsize
-    return res
-
-
-def ft_abs(number):
-    if number > 0:
-        return(number)
-    else:
-        return(-number)
-
 @click.command()
 @click.argument("data_file", type=click.Path(exists=True))
 @click.argument("model_file", default="model.json")
