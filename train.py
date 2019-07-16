@@ -143,14 +143,14 @@ class Trainer(object):
             if self.plot:
                 self.animate()
                 
-    def train_epoch(self, batch_x, batch_y):
-        n = float(len(batch_x))
+    def train_epoch(self, X, Y):
+        n = float(len(X))
         b_vect = []
         a_vect = []
-        for i, _ in enumerate(batch_x):
-            error_b = self.estimate(batch_x[i]) - batch_y[i]
+        for i, _ in enumerate(X):
+            error_b = self.estimate(X[i]) - Y[i]
             b_vect.append(error_b)
-            error_a = error_b * batch_x[i]
+            error_a = error_b * X[i]
             a_vect.append(error_a)
         loss_b_prime = sum(b_vect)
         loss_a_prime = sum(a_vect)
@@ -164,8 +164,8 @@ class Trainer(object):
         # metrics
         new_loss_tab = []
         acc_tab = []
-        for i, _ in enumerate(batch_x):
-            error = self.estimate(batch_x[i]) - batch_y[i]
+        for i, _ in enumerate(X):
+            error = self.estimate(X[i]) - Y[i]
             error_sq = error ** 2
             new_loss_tab.append(error_sq)
             acc_tab.append(1)
