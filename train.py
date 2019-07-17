@@ -137,7 +137,7 @@ class Trainer(object):
         l = list(zip(self.x_data, self.y_data))
         random.shuffle(l)
         x_data, y_data = zip(*l)
-        # loop on epochs / batches / data_points
+        # loop on epochs
         for epoch in range(self.epochs):
             print("Training... Epoch : %d" % (epoch + 1))
             loss, acc = self.train_epoch(x_data, y_data)
