@@ -19,6 +19,7 @@ class Trainer(object):
         self.model_file = model_file
         self.epochs = epochs
         self.learning_rate = learning_rate
+        self.learning_rate_hist = []
         self.model =   {"theta_0": 0.0, 
                         "theta_1": 0.0, 
                         "x_min": 0, 
@@ -105,6 +106,10 @@ class Trainer(object):
         x2 = max(x_data)
         y2 = self.estimate(x2)
         plt.plot([x1, x2], [y1, y2], c="r")
+        plt.twinx().twiny()
+        # plot learning rate history
+        plt.plot(self.learning_rate_hist, label="Learning Rate")
+        plt.legend()
         plt.draw()
         plt.pause(1/self.epochs)
 
@@ -138,6 +143,7 @@ class Trainer(object):
             loss, acc = self.train_epoch(x_data, y_data)
             self.acc.append(acc)
             self.loss.append(loss)
+            self.learning_rate_hist.append(self.learning_rate)
             # print
             print("loss : %f ; acc : %f" % (round(loss, 2), round(acc, 2)))
             if self.plot:
