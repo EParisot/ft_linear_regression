@@ -40,7 +40,7 @@ class Predictor(object):
         x /= self.model["x_max"] - self.model["x_min"]
         y = self.model["theta_0"] + self.model["theta_1"] * x
         # "de-normalise" y
-        y *= self.model["y_max"] + self.model["y_min"]
+        y *= self.model["y_max"]
         y += self.model["y_min"]
         return y
 
